@@ -1,31 +1,31 @@
-using System.Collections.Generic;
+using System;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
-using System.Linq;
-using OpenAI;
-using OpenAI.Chat;
-using LogAggregatorService.LogMetrics;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace LogAggregatorService.Services
 {
     public class AIAnalyzerService
     {
-        private readonly OpenAIClient _client;
+        private readonly HttpClient _httpClient;
+        private readonly ILogger<AIAnalyzerService> _logger;
+        private const string HuggingFaceEndpoint = "https://api-inference.huggingface.co/models/google/flan-t5-small"; // Update your model here
+        private const string HuggingFaceApiKey = "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"; // Set this in environment variables ideally
 
-        public AIAnalyzerService()
+        public AIAnalyzerService(HttpClient httpClient, ILogger<AIAnalyzerService> logger)
         {
-            _client = new OpenAIClient(new OpenAIAuthentication(Environment.GetEnvironmentVariable("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")));
+            _httpClient = httpClient;
+            _logger = logger;
         }
 
-        public async Task AnalyzeLogs(IEnumerable<string> logs)
+        public async Task<string> AnalyzeLogsAsync(string logs)
         {
-            var input = string.Join("\n", logs.Take(100)); // Limit input to prevent token overflow
-
-            var chatRequest = new ChatRequest(
-                messages: new List<Message>
-                {
-                            new Message(Role.System, 
-@"You are a log analysis engine.
+            try
+            {
+                const string prompt = @"You are a log analysis engine.
 
 Given a batch of application logs, your tasks are:
 1. Analyze the logs to understand severity, patterns, and anomalies.
@@ -44,18 +44,45 @@ Respond strictly in this JSON format:
   ""critical_logs_count"": number,
   ""anomalies_detected"": true/false,
   ""summary"": ""short health overview""
-}
-Analyze carefully. Output strict JSON only."),
-                    new Message(Role.User, input)
-                },
-                model: "gpt-4"
-            );
+}";
 
-            var response = await _client.ChatEndpoint.GetCompletionAsync(chatRequest);
+                var requestBody = new
+                {
+                    inputs = $"{prompt}\nLogs:\n{logs}"
+                };
 
-            var output = response.FirstChoice.Message.Content;
-            LogAggregatorService.LogMetrics.LogMetrics.ProcessAIInsights(output); // Assuming AILogAnalysis is a Counter
+                var jsonContent = new StringContent(
+                    JsonConvert.SerializeObject(requestBody),
+                    Encoding.UTF8,
+                    "application/json"
+                );
 
+                var request = new HttpRequestMessage(HttpMethod.Post, HuggingFaceEndpoint);
+                request.Headers.Add("Authorization", $"Bearer {HuggingFaceApiKey}");
+                request.Content = jsonContent;
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    _logger.LogError($"Failed to analyze logs via HuggingFace. StatusCode: {response.StatusCode}, Response: {errorBody}");
+                    return $"[AI Analysis Failed: {response.StatusCode}]";
+                }
+
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                // Fix: Parse as JArray
+                var responseArray = JArray.Parse(responseBody);
+                var resultContent = responseArray[0]?["generated_text"]?.ToString();
+
+                return resultContent ?? "[No content returned]";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception during AI log analysis with HuggingFace.");
+                return "[AI Analysis Error]";
+            }
         }
     }
 }
