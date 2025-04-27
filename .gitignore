@@ -1,0 +1,36 @@
+# Ignore build outputs
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# Environment variables
+.env
+
+# Visual Studio Code
+.vscode/
+
+# Dependency directories
+packages/
+node_modules/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Rider IDE
+.idea/
+
+# Generated files
+*.generated.cs
+
+# Temporary files
+*.tmp
+*.temp

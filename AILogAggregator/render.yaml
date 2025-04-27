@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: log-aggregator-service
+    env: docker
+    repo: https://github.com/srinath-varadan/AILogAggregatorService
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: SPLUNK_HEC_ENDPOINT
+        value: https://prd-p-phf6t.splunkcloud.com:8088/services/collector/event
+      - key: SPLUNK_HEC_TOKEN
+        value: e45fb617-7cec-4362-9ad2-df707e1a3761
+      - key: OPENAI_API_KEY
+        value: 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
+    plan: free
+    autoDeploy: true

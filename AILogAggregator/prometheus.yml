@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s  # Scrape metrics every 15 seconds
+
+scrape_configs:
+  - job_name: 'log_aggregator_service'
+    static_configs:
+      - targets: ['log-aggregator-service:5000']
+
+  - job_name: 'python_stock_stream_service'
+    static_configs:
+      - targets: ['https://stock-stream-api.onrender.com']
+
+  - job_name: 'portfolio_dotnet_service'
+    static_configs:
+      - targets: ['https://portfolio-api-cptv.onrender.com']
