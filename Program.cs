@@ -1,8 +1,10 @@
 using LogAggregatorService;
 using LogAggregatorService.Services;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +18,14 @@ builder.Services.AddHostedService<AggregatorWorker>();
 
 var app = builder.Build();
 
-// Expose a basic HTTP endpoint for health check (Alloy scrapes here)
-app.MapGet("/", () => "AILogAggregator is running.");
-
+// Expose minimal endpoint to allow HEAD checks
+app.Map("/", async context =>
+{
+    if (context.Request.Method == HttpMethods.Head)
+    {
+        context.Response.StatusCode = 200;
+        return;
+    }
+    await context.Response.WriteAsync("LogAggregatorService is running");
+});
 app.Run();
