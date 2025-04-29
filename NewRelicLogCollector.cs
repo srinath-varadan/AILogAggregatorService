@@ -28,7 +28,7 @@ namespace LogAggregatorService.Services
                 {{
                     actor {{
                         account(id: {_accountId}) {{
-                            nrql(query: ""SELECT * FROM Log SINCE 30 minutes ago"") {{
+                            nrql(query: ""SELECT * FROM Log SINCE 180 minutes ago"") {{
                                 results
                             }}
                         }}
@@ -52,35 +52,32 @@ namespace LogAggregatorService.Services
             }
 
             var jsonString = await response.Content.ReadAsStringAsync();
-            var parsed = JObject.Parse(jsonString);
+            var parsedResponse = JObject.Parse(jsonString);
 
             var structuredLogs = new List<string>();
 
-            foreach (var result in parsed["results"] ?? Enumerable.Empty<JToken>())
+            // Navigate to the "results" array in the response
+            foreach (var eventItem in parsedResponse["data"]?["actor"]?["account"]?["nrql"]?["results"] ?? Enumerable.Empty<JToken>())
             {
-                foreach (var eventItem in result["events"] ?? Enumerable.Empty<JToken>())
+                var log = new StructuredLog
                 {
-                    var log = new StructuredLog
-                    {
-                        Message = eventItem["message"]?.ToString(),
-                        Level = eventItem["level"]?.ToString(),
-                        Timestamp = eventItem["timestamp"]?.Value<long>() ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                        AppName = eventItem["attributes"]?["appName"]?.ToString(),
-                        Controller = eventItem["attributes"]?["controller"]?.ToString(),
-                        Method = eventItem["attributes"]?["method"]?.ToString(),
-                        HttpVerb = eventItem["attributes"]?["httpVerb"]?.ToString(),
-                        Payload = eventItem["attributes"]?["payload"]?.ToString(),
-                        Environment = eventItem["attributes"]?["env"]?.ToString()
-                    };
+                    Message = eventItem["message"]?.ToString(),
+                    Level = eventItem["level"]?.ToString(),
+                    Timestamp = eventItem["timestamp"]?.Value<long>() ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    AppName = eventItem["appName"]?.ToString(),
+                    Controller = eventItem["controller"]?.ToString(),
+                    Method = eventItem["method"]?.ToString(),
+                    HttpVerb = eventItem["httpVerb"]?.ToString(),
+                    Payload = eventItem["payload"]?.ToString() ?? eventItem["payload.Count"]?.ToString(),
+                    Environment = eventItem["env"]?.ToString()
+                };
 
-                    structuredLogs.Add(JsonConvert.SerializeObject(log));
-                }
+                structuredLogs.Add(JsonConvert.SerializeObject(log));
             }
-
             return structuredLogs;
         }
     }
-      public class StructuredLog
+    public class StructuredLog
     {
         public string Message { get; set; }
         public string Level { get; set; }

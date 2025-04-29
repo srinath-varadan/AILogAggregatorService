@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register all services
+// Register services
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<NewRelicLogCollector>();
 builder.Services.AddSingleton<PythonLogCollector>();
@@ -16,8 +16,7 @@ builder.Services.AddHostedService<AggregatorWorker>();
 
 var app = builder.Build();
 
-// Expose Prometheus /metrics endpoint
-app.UseRouting();
+// Expose a basic HTTP endpoint for health check (Alloy scrapes here)
+app.MapGet("/", () => "AILogAggregator is running.");
 
-// Run the Web App
 app.Run();

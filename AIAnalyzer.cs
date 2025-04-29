@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -12,8 +13,8 @@ namespace LogAggregatorService.Services
     {
         private readonly HttpClient _httpClient;
         private readonly ILogger<AIAnalyzerService> _logger;
-        private const string HuggingFaceEndpoint = "https://api-inference.huggingface.co/models/google/flan-t5-small"; // Update your model here
-        private const string HuggingFaceApiKey = "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"; // Set this in environment variables ideally
+        private const string CohereEndpoint = "https://api.cohere.ai/v1/chat"; // Cohere Chat Endpoint
+        private const string CohereApiKey = "ffn4SNGDfbbPOzVhPhdhgc2eqmfNglkFQBGpZKcy"; // Put your actual API key here
 
         public AIAnalyzerService(HttpClient httpClient, ILogger<AIAnalyzerService> logger)
         {
@@ -48,7 +49,9 @@ Respond strictly in this JSON format:
 
                 var requestBody = new
                 {
-                    inputs = $"{prompt}\nLogs:\n{logs}"
+                    message = $"{prompt}\nLogs:\n{logs}",
+                    model = "command-r-plus", // Best model for summarization
+                    temperature = 0.2
                 };
 
                 var jsonContent = new StringContent(
@@ -57,8 +60,8 @@ Respond strictly in this JSON format:
                     "application/json"
                 );
 
-                var request = new HttpRequestMessage(HttpMethod.Post, HuggingFaceEndpoint);
-                request.Headers.Add("Authorization", $"Bearer {HuggingFaceApiKey}");
+                var request = new HttpRequestMessage(HttpMethod.Post, CohereEndpoint);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", CohereApiKey);
                 request.Content = jsonContent;
 
                 var response = await _httpClient.SendAsync(request);
@@ -66,21 +69,20 @@ Respond strictly in this JSON format:
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorBody = await response.Content.ReadAsStringAsync();
-                    _logger.LogError($"Failed to analyze logs via HuggingFace. StatusCode: {response.StatusCode}, Response: {errorBody}");
+                    _logger.LogError($"Failed to analyze logs via Cohere. StatusCode: {response.StatusCode}, Response: {errorBody}");
                     return $"[AI Analysis Failed: {response.StatusCode}]";
                 }
 
                 var responseBody = await response.Content.ReadAsStringAsync();
 
-                // Fix: Parse as JArray
-                var responseArray = JArray.Parse(responseBody);
-                var resultContent = responseArray[0]?["generated_text"]?.ToString();
+                var responseJson = JObject.Parse(responseBody);
+                var resultContent = responseJson["text"]?.ToString();
 
                 return resultContent ?? "[No content returned]";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception during AI log analysis with HuggingFace.");
+                _logger.LogError(ex, "Exception during AI log analysis with Cohere.");
                 return "[AI Analysis Error]";
             }
         }
