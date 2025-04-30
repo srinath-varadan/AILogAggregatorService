@@ -38,7 +38,7 @@ namespace LogAggregatorService
                 await PushRawLogsToLoki(allLogs);
 
                 // Run AI analysis every 30 minutes
-                if (DateTime.UtcNow - _lastAiAnalysisTime > TimeSpan.FromMinutes(30))
+                if (DateTime.UtcNow - _lastAiAnalysisTime > TimeSpan.FromMinutes(5))
                 {
                     var aiResult = await _ai.AnalyzeLogsAsync(string.Join("\n", allLogs));
                     if (!string.IsNullOrWhiteSpace(aiResult))
@@ -48,7 +48,7 @@ namespace LogAggregatorService
                     }
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
             }
         }
 
