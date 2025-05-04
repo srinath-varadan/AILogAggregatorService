@@ -77,6 +77,15 @@ Respond strictly in this JSON format:
 
                 var responseJson = JObject.Parse(responseBody);
                 var resultContent = responseJson["text"]?.ToString();
+                resultContent = resultContent.Trim();
+                if (resultContent.StartsWith("```json"))
+                {
+                    resultContent = resultContent.Substring(7); // Remove "```json"
+                }
+                if (resultContent.EndsWith("```"))
+                {
+                    resultContent = resultContent.Substring(0, resultContent.Length - 3); // Remove "```"
+                }
 
                 return resultContent ?? "[No content returned]";
             }
