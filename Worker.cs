@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace LogAggregatorService
 {
@@ -36,11 +37,29 @@ namespace LogAggregatorService
                 var allLogs = newRelicLogs.Concat(pythonLogs).Concat(promLogs).ToList();
 
                 await PushRawLogsToLoki(allLogs);
-
+                var filteredLogs = allLogs.Where(log =>
+                                       !log.Contains("success", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Contains("Successfully", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Contains("Generate", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Contains("Incoming Request", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Contains("streaming started", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Contains("manually stopped", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Contains("Loki log line", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Equals("{", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Equals("}", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Equals("```", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Contains("chunks", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Contains("json", StringComparison.OrdinalIgnoreCase) &&
+                                       !log.Contains(" 200") &&
+                                       !log.Contains("code=\"200\"") &&
+                                       !log.Contains("\"status\":200") &&
+                                       !Regex.IsMatch(log, "Fetched.*success", RegexOptions.IgnoreCase)
+                                   ).ToList();
                 // Run AI analysis every 30 minutes
                 if (DateTime.UtcNow - _lastAiAnalysisTime > TimeSpan.FromMinutes(5))
                 {
-                    var aiResult = await _ai.AnalyzeLogsAsync(string.Join("\n", allLogs));
+
+                    var aiResult = await _ai.AnalyzeLogsAsync(string.Join("\n", filteredLogs));
                     if (!string.IsNullOrWhiteSpace(aiResult))
                     {
                         await PushAiAnalysisToLoki(aiResult);
@@ -119,8 +138,8 @@ namespace LogAggregatorService
             }
             else
             {
-                Console.WriteLine($"Loki push succeeded: {response.StatusCode}");  
-            } 
+                Console.WriteLine($"Loki push succeeded: {response.StatusCode}");
+            }
         }
     }
 }
